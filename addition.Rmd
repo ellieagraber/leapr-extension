@@ -1,0 +1,198 @@
+---
+title: "addition"
+output: html_document
+---
+```{r library for extracting kegg ids from url}
+library(stringr)
+library (dplyr)
+library(httr)
+library(curl)
+library(jsonlite)
+library(RCurl)
+library(stats)
+library(plotly)
+library(ggplot2)
+library(tidyverse)
+library(readr)
+```
+
+```{r will read in a csv}
+read_in_data<-function(directory,infile)#str directory,#str infile
+{
+  setwd(directory)#sets working directory
+
+data<-read.csv(infile)#reads in the csv and returns what was saved
+return(data)
+}
+```
+
+```{r if the data is imported as links will go and extract and replace that information with a better configuration of the data}
+yank <- function(infile) {#infile is a data frame
+  # Loop through indices of the column 'Kegg'
+  for (index in seq_along(infile$Kegg)) {
+    # Extract patterns matching "C" followed by 1 to 5 digits
+    id <- str_extract_all(infile$Kegg[index], "C\\d{1,5}")[[1]]  # Extract and unlist the result
+    id<-unique(id)#makes unique. In the link has pattern twice for each code
+    # Replace the value in the column with the extracted pattern(s)
+    infile$Kegg[index] <- paste(id, collapse = ";")  # Combine matches into a single string
+  }
+  return(infile)  # Return the modified dataframe
+}
+```
+
+
+```{r}
+create_gmt_lines <- function(data, infile) {#data is a data frame and infile is a dataframe that contains the common name
+  # Initialize a vector to store GMT lines
+  gmt_lines <- c()
+  
+  # Iterate over each row of the data frame or matrix
+  for (i in 1:nrow(data)) {
+    # Get the row name (set name)
+    set_name <- rownames(data)[i]
+    
+    # If there are no row names, use numeric indices as a fallback this should never happen if set it up is used
+    if (is.null(set_name)) {
+      set_name <- paste("Row", i, sep = "_")
+    }
+    description <- infile$Common.Name[i]  # Modify this to your desired text or logic
+    
+    # Get the elements of the row (convert to a tab-separated string)
+    elements <- paste(data[i, ], collapse = "\t")
+    
+    # Combine set name, description, and elements into a GMT line
+    gmt_line <- paste(set_name,description, elements, sep = "\t")
+    
+    # Append the GMT line to the vector
+    gmt_lines <- c(gmt_lines, gmt_line)
+    # Return all GMT lines
+  }
+   return(gmt_lines)
+}
+```
+
+```{r to get the data to be in the right arrangement for the create lines function function}
+set_it_up<-function(infile)#infile is a data frame
+{
+   df<-data.frame(infile$Kegg)#Makes new data frame with the extracted kegg ids
+   
+  for(x in seq_along(df))
+    {
+      df<-str_split(df[[x]],';', simplify = TRUE) #Splits the kegg ids by the ; am expands them through the row
+    }
+  infiles= t(df)#Transposes data to be able to add column names
+  colnames(infiles) <- infile$Pathways# adds column names
+  infile= t(infiles)#turns the column names to row names
+  return(infile)
+}
+```
+
+```{r a function that calls all of the necessary items to create gmt lines}
+make_gmt<-function(directory,infilecsv,outfile_name.gmt,outfiledirectory=NULL)#directory type:str path to the csv infile type: str csv name,outfile_name.gmt type: str name for final gmt,outfiledirectory type: str where you want the gmt if not the same as where the csv lives
+{
+  datataxa<-read_in_data(directory, infilecsv )#reads in csv saves data
+  datataxaextract<-yank(infile=datataxa)#extracts the kegg ids
+  dataforkeggtaxa<-set_it_up(datataxaextract)#sets the data up to be read correctly by create gmt lines
+  taxagmt<-create_gmt_lines(dataforkeggtaxa,datataxaextract)# creates gmt lines
+  if(is.null(outfiledirectory)==TRUE)# if there is nothing added to outfiledirectory then put it where you found the csv
+    {
+      writeLines(taxagmt,con =outfile_name.gmt)
+    }
+ else #else set the file directory to the str input and write the lines of the gmt
+    { 
+      setwd(outfiledirectory)
+      writeLines(taxagmt,con =outfile_name.gmt)
+    }
+}
+```
+
+```{r}
+database<-function(link,nameone,nametwo)#link type: str of link to api database names type: str this name of the columns for the table
+  {
+  df<-data.frame()#makes an empty data frame
+   response <- GET(link)#httr package to open link and saves the data
+   content_text <- content(response, as = "text")# takes the data saved reads in as text
+   df <- read.table(text = content_text, sep = "\t", header = FALSE)#creates table of data saved
+   #labels the column names
+   colnames(df)[1]<-nameone
+   colnames(df)[2]<-nametwo
+   return(df)
+  }
+```
+
+
+```{r}
+enzymecompound<-database(link="https://rest.kegg.jp/link/compound/enzyme", nameone = 'enzyme',nametwo = 'compound')
+```
+```{r}
+pathwaycompound<-database("https://rest.kegg.jp/link/pathway/compound", nameone = 'compound', nametwo = 'pathway')
+```
+```{r}
+pathwayenzyme<-database("https://rest.kegg.jp/link/pathway/enzyme", nameone = 'compound', nametwo = 'pathway')
+```
+
+
+```{r}
+make_gmt(directory = "C:/Users/grab062/OneDrive - PNNL/Documents/leaprdatabase", infile = 'Copy-of-All-pathways-of-M.-musculus (1) (1).csv', outfile_name.gmt = 'mmusculus_metabolism_pathway_diseases.gmt', outfiledirectory = 'C:/Users/grab062/OneDrive - PNNL/Documents/project_info/gmtsdisease')
+```
+
+```{r}
+
+```
+
+```{r}
+real_name_incon$oddsratio_fixed<- ifelse(is.infinite(real_name_incon$oddsratio), 100, real_name_incon$oddsratio)
+# Most basic bubble plot
+inconsistantplot_allmol<-ggplot(
+  real_name_incon,
+  aes(
+    x= row.names(real_name_incon),
+    y=pvalue,
+    size = pvalue,
+    color=oddsratio_fixed
+  )
+)+ 
+  
+  geom_point(alpha=0.8) +
+  
+  # Create color gradient
+  scale_color_gradient2(
+    low = "pink",
+    mid = "blue",
+    high = "orange",
+    midpoint = 50,
+    limits=c(0,100),
+    name = "Odds Ratio"  # Optional: Name for the color legend
+  ) +
+  #change the framing
+  coord_cartesian(xlim =NULL , ylim = c(0, 1)) +  # Zoom into region
+  # Change x-axis column labels
+  scale_x_discrete(
+    labels = c("metabloic pathways")#abbreviate(row.names(real_name_incon))
+    
+  ) +
+  
+  # Update font sizes
+  theme(
+    axis.text.x = element_text(size = 5, hjust = 1),
+    axis.text.y = element_text(size = 6, hjust = 1)
+  ) +
+  
+  # Customize axis labels
+  labs(
+    x = "Pathway",
+    y = "P-value"
+  )+theme_bw()
+
+allmolinconvis<-ggplotly(inconsistantplot_allmol)
+
+htmlwidgets::saveWidget(allmolinconvis, "interactive_plot_allmol.html")
+```
+
+
+
+
+
+
+
+
